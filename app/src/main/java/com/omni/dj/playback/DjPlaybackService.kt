@@ -44,7 +44,7 @@ class DjPlaybackService : MediaSessionService() {
     override fun onBind(intent: Intent?): IBinder? = if (intent?.action == LOCAL_BIND) localBinder else super.onBind(intent)
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (!engine.state.value.playing) stopSelf()
+        if (!engine.sessionPlayer.playWhenReady) stopSelf()
     }
     override fun onDestroy() {
         session?.release(); engine.release(); super.onDestroy()

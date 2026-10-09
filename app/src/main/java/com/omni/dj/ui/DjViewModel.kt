@@ -60,8 +60,18 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
         else connected.start(visibleSongs.value.ifEmpty { library.value.songs }, song)
     }
     fun favorite(song: Song) = app.preferences.favorite(song.id)
+    fun startSession() {
+        val songs = visibleSongs.value
+        val song = songs.firstOrNull() ?: return
+        val connected = engine ?: run { pendingSong = song; return }
+        connected.start(songs, song)
+    }
     fun updateSettings(transform: (MixSettings) -> MixSettings) = app.preferences.update(transform)
-    fun playNext(song: Song) = engine?.queueNext(song)
+    fun playNext(song: Song) {
+        val connected = engine ?: return
+        if (connected.state.value.current == null) connected.start(library.value.songs, song)
+        else connected.queueNext(song)
+    }
     fun clearError() = engine?.clearIssue()
     fun correctGrid(song: Song, bpm: Float, offset: Long) = app.analysis.correctGrid(song, bpm, offset)
 }

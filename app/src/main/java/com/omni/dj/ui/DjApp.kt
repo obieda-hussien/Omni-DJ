@@ -105,7 +105,7 @@ fun DjApp(model: DjViewModel) = OmniTheme {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(moodString(settings.mood)), color = Mint, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                             FilledTonalButton(enabled = songs.isNotEmpty(), onClick = {
-                                songs.firstOrNull()?.let { model.play(it) }
+                                model.startSession()
                                 if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                                     notification.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                             }) { Icon(Icons.Rounded.PlayArrow, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.start_session)) }

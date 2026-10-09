@@ -8,7 +8,7 @@
     <string name="start_session">ابدأ الجلسة</string>
     <string name="search_hint">دور على أغنية أو فنان أو ألبوم</string>
     <string name="clear_search">مسح البحث</string>
-    <string name="song_count">%1$d أغنية</string>
+    <string name="song_count">الأغاني · %1$d</string>
     <string name="settings">الإعدادات</string>
     <string name="sort">الترتيب</string>
     <string name="refresh">تحديث المكتبة</string>

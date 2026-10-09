@@ -112,6 +112,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
             .setAlbumTitle(song.album).setArtworkUri(song.artwork).build()).build()
     fun start(songs: List<Song>, song: Song) {
+        app.analysis.playbackActive = true
         cancelTransition(); active.pause(); incoming.stop()
         waiting.clear()
         val index = songs.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
@@ -123,9 +124,9 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
     }
     fun toggle() {
         if (active.playWhenReady) { active.pause(); incoming.pause() }
-        else { active.play(); if (transitionStarted) incoming.play() }
+        else { app.analysis.playbackActive = true; active.play(); if (transitionStarted) incoming.play() }
     }
-    fun play() { active.play(); if (transitionStarted) incoming.play() }
+    fun play() { app.analysis.playbackActive = true; active.play(); if (transitionStarted) incoming.play() }
     fun pause() { active.pause(); incoming.pause() }
     fun seek(position: Long) { cancelTransition(); loopBeats = 0; active.seekTo(position.coerceIn(0, current?.durationMs ?: 0)); applySingleDeckGain() }
     fun previous() { seek(0) }
@@ -290,10 +291,12 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         val completedPlan = transition
         if (from != null && completedPlan != null) completedMix = CompletedMix(from, song, completedPlan)
         val outgoing = active
+        val resume = outgoing.playWhenReady
         // Switch identity before pause listeners run, otherwise outgoing pause also pauses the new deck.
         deck = 1 - deck
         outgoing.pause(); outgoing.volume = 0f; outgoing.setAudioAttributes(attributes, false)
         active.setAudioAttributes(attributes, true)
+        if (resume) active.play()
         onPlayerChanged(active)
         outgoing.stop(); outgoing.clearMediaItems()
         current = song; waiting.removeAll { it.id == song.id }; nextLocked = null; prepared = null

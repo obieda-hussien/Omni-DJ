@@ -26,10 +26,18 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
     val analyses = _analyses.asStateFlow()
     private val _progress = MutableStateFlow(AnalysisProgress())
     val progress = _progress.asStateFlow()
-    @Volatile var playbackActive = false
     private var job: Job? = null
     private var keys: Set<String> = emptySet()
+    private var sources: List<Song> = emptyList()
+    @Volatile var playbackActive = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) job?.cancel() // Release the analysis decoder, not merely its CPU loop.
+            else if (sources.isNotEmpty()) analyze(sources, force = true)
+        }
     fun analyze(songs: List<Song>, force: Boolean = false) {
+        sources = songs
         val nextKeys = songs.map { it.cacheKey }.toSet()
         if (!force && nextKeys == keys) return
         keys = nextKeys
@@ -44,7 +52,7 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
             for (song in songs) {
                 ensureActive()
                 try {
-                    if (song.id !in _analyses.value) {
+                    if (song.id !in _analyses.value || !File(directory, "${song.cacheKey}.json").exists()) {
                         // Do not compete with two live decoders on entry-level phones.
                         while (playbackActive) { delay(750); ensureActive() }
                         val analysis = applyGrid(song, decode(song))
@@ -61,7 +69,7 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
             _progress.value = AnalysisProgress(done, songs.size, failed = failed)
         }
     }
-    fun cancel() { job?.cancel(); keys = emptySet(); _progress.value = _progress.value.copy(running = false) }
+    fun cancel() { job?.cancel(); keys = emptySet(); sources = emptyList(); _progress.value = _progress.value.copy(running = false) }
     fun correctGrid(song: Song, bpm: Float, offsetMs: Long) {
         if (bpm !in 65f..180f) return
         val period = (60000 / bpm).toLong().coerceAtLeast(1)
