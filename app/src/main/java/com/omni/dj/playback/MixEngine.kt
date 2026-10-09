@@ -48,6 +48,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
     private var transitionElapsed = 0L
     private var transitionStarted = false
     private var scheduledPosition: Long? = null
+    private var automaticTransition = false
     private var manualCrossfade: Float? = null
     private var manualEffects = DeckEffects()
     private var loopStart = 0L
@@ -92,7 +93,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         }
         scope.launch {
             app.preferences.settings.collect {
-                if (!it.autoMix && transitionStarted && manualCrossfade == null) cancelTransition()
+                if (!it.autoMix && automaticTransition && (transitionStarted || scheduledPosition != null)) cancelTransition()
             }
         }
     }
@@ -168,6 +169,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         prepareNext()
         val candidate = prepared ?: return
         if (incoming.playbackState != Player.STATE_READY) return
+        automaticTransition = false
         if (!transitionStarted) {
             transition = MixPlanner.plan(app.analysis.analyses.value[current?.id], app.analysis.analyses.value[candidate.id], app.preferences.settings.value, candidate.durationMs)
             incoming.seekTo(transition!!.incomingCueMs); incoming.playbackParameters = PlaybackParameters(transition!!.incomingSpeed, 1f)
@@ -207,10 +209,11 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         processors[1 - deck].effects = DeckEffects()
         incoming.prepare()
     }
-    private fun scheduleTransition() {
+    private fun scheduleTransition(automatic: Boolean = false) {
         if (transitionStarted || scheduledPosition != null || current == null) return
         val song = prepared ?: return
         transition = buildPlan(song)
+        automaticTransition = automatic
         scheduledPosition = active.currentPosition + if (transition!!.alignToBeat) MixPlanner.delayToBeat(active.currentPosition, app.analysis.analyses.value[current?.id]) else 0
     }
     private fun buildPlan(song: Song): MixPlan {
@@ -241,8 +244,9 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
                 val nextPlan = prepared?.let { buildPlan(it) }
                 if (app.preferences.settings.value.autoMix && !transitionStarted && scheduledPosition == null &&
                     nextPlan != null && remaining <= nextPlan.durationMs + 600 && remaining > 200 &&
-                    incoming.playbackState == Player.STATE_READY) scheduleTransition()
-                if (!transitionStarted && scheduledPosition?.let { active.currentPosition >= it } == true && incoming.playbackState == Player.STATE_READY) {
+                    incoming.playbackState == Player.STATE_READY) scheduleTransition(automatic = true)
+                if (!transitionStarted && (!automaticTransition || app.preferences.settings.value.autoMix) &&
+                    scheduledPosition?.let { active.currentPosition >= it } == true && incoming.playbackState == Player.STATE_READY) {
                     incoming.seekTo(transition!!.incomingCueMs); incoming.playbackParameters = PlaybackParameters(transition!!.incomingSpeed, 1f)
                     transitionElapsed = 0; transitionStarted = true; incoming.play()
                 }
@@ -300,14 +304,14 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         onPlayerChanged(active)
         outgoing.stop(); outgoing.clearMediaItems()
         current = song; waiting.removeAll { it.id == song.id }; nextLocked = null; prepared = null
-        transition = null; transitionStarted = false; transitionElapsed = 0; manualCrossfade = null; scheduledPosition = null
+        transition = null; transitionStarted = false; transitionElapsed = 0; manualCrossfade = null; scheduledPosition = null; automaticTransition = false
         manualEffects = DeckEffects(); processors[deck].effects = manualEffects
         applySingleDeckGain(); app.preferences.remember(song.id)
     }
     private fun cancelTransition() {
         incoming.pause(); incoming.volume = 0f
         processors[1 - deck].effects = DeckEffects(); processors[deck].effects = manualEffects
-        transition = null; scheduledPosition = null; transitionStarted = false; transitionElapsed = 0; manualCrossfade = null
+        transition = null; scheduledPosition = null; transitionStarted = false; transitionElapsed = 0; manualCrossfade = null; automaticTransition = false
         applySingleDeckGain()
     }
     fun release() {

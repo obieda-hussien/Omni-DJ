@@ -52,7 +52,7 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
             for (song in songs) {
                 ensureActive()
                 try {
-                    if (song.id !in _analyses.value || !File(directory, "${song.cacheKey}.json").exists()) {
+                    if (readBase(song) == null) {
                         // Do not compete with two live decoders on entry-level phones.
                         while (playbackActive) { delay(750); ensureActive() }
                         val analysis = applyGrid(song, decode(song))
