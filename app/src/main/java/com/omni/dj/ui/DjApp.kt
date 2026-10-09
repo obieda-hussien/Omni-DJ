@@ -189,7 +189,7 @@ fun DjApp(model: DjViewModel) = OmniTheme {
                     }
                     Artwork(song, Modifier.offset(x = artX, y = artY).size(artSize), corner = 12.dp + 18.dp * fraction)
                     if (fraction < .95f) {
-                        Row(Modifier.fillMaxWidth().height(76.dp).alpha(1 - fraction).then(drag).clickable { expansion = 1f }
+                        Row(Modifier.fillMaxWidth().height(76.dp).alpha((1 - fraction * 4).coerceIn(0f, 1f)).then(drag).clickable { expansion = 1f }
                             .padding(start = 76.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
@@ -207,7 +207,8 @@ fun DjApp(model: DjViewModel) = OmniTheme {
     }
     when (sheet) {
         "settings" -> ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Panel) { SettingsPanel(settings, model) }
-        "pro" -> ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Panel, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) { ProPanel(state, analyses[state.current?.id], model) }
+        "pro" -> ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Panel, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) { ProPanel(state, analyses[state.current?.id], model) { sheet = "grid" } }
+        "grid" -> state.current?.let { song -> ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Panel) { BeatGridPanel(song, analyses[song.id], model) { sheet = "pro" } } }
         "queue" -> ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Panel) { QueuePanel(state, model) }
     }
 }
@@ -238,7 +239,7 @@ private fun SongRow(song: Song, active: Boolean, favorite: Boolean, analysis: Tr
         Box {
             IconButton({ menu = true }, Modifier.size(36.dp)) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.song_options)) }
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem({ Text(stringResource(R.string.play_next)) }, { next(); menu = false }, leadingIcon = { Icon(Icons.Rounded.QueueMusic, null) })
+                DropdownMenuItem({ Text(stringResource(R.string.play_next)) }, { next(); menu = false }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) })
                 DropdownMenuItem({ Text(stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite)) }, { star(); menu = false }, leadingIcon = { Icon(Icons.Rounded.FavoriteBorder, null) })
             }
         }
@@ -303,6 +304,16 @@ private fun ExpandedPlayer(song: Song, state: PlaybackState, settings: MixSettin
                 }
             }
         }
+        state.lastMix?.let { mix -> item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.rate_mix), style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(if (mix.feedback != null) R.string.mix_feedback_saved else R.string.mix_feedback_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton({ model.engine?.rateLastMix(true) }) { Icon(Icons.Rounded.ThumbUp, stringResource(R.string.like_mix), tint = if (mix.feedback == true) Mint else MaterialTheme.colorScheme.onSurfaceVariant) }
+                IconButton({ model.engine?.rateLastMix(false) }) { Icon(Icons.Rounded.ThumbDown, stringResource(R.string.dislike_mix), tint = if (mix.feedback == false) Violet else MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        } }
     }
 }
 

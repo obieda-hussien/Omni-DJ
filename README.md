@@ -9,7 +9,9 @@ A standalone, offline Android music player with automatic DJ transitions and opt
 - Automatic mixing is enabled by default. The planner selects **smooth blend, beat blend, bass swap, filter sweep, echo out, or quick cut**. Users can choose a style, transition duration, tempo-change limit and session mood.
 - Smart order evaluates the next twelve queued candidates using tempo compatibility and energy. Explicit **Play next** pins a song ahead of this selection. Songs leave the queue after playing; no automatic repeat.
 - Two ExoPlayer decks prebuffer the next track. PCM processing applies three-band sound shaping, a low-pass filter and echo. Incoming tempo can change independently of pitch. Overlap gains reserve headroom; per-deck peak guards prevent PCM overflow.
+- Explicit thumbs-up/down feedback saves the transition recipe for that exact pair of source files. Liked recipes reuse the style and overlap preference; disliked styles fall back to a smooth blend. Safety checks still bound tempo changes. No neural training is implied.
 - Pro controls expose a crossfader, speed, sound shaping and 4/8/16-beat loops. Manual crossfade suspends automatic fade progress until committed or reset. Loops suppress automatic transition scheduling.
+- A manual beat-grid editor and tap-tempo estimator correct BPM and beat phase. Corrections persist for that source version; they do not imply automatic downbeat recognition.
 - Cached local analysis estimates BPM, beat phase, confidence, RMS, energy, conservative low-energy intro/outro markers and a waveform. One decoder works at a time and pauses during playback. Cache keys include media ID, modification date and size; changed files are analyzed again.
 - Background playback through a Media3 media session, with lock-screen/notification transport, audio-focus handling and headset disconnection handling. Playback errors surface in the UI.
 - No account, network permission, cloud upload or paid audio SDK is required.
@@ -20,7 +22,7 @@ This is a working first implementation, not a claim of professional hardware tim
 
 Two independent Media3 audio outputs and a 40 ms automation loop do not provide a shared sample-accurate clock. Beat alignment is approximate and must be evaluated on physical devices, particularly with Bluetooth. File-seek loops can have short gaps. The EQ uses lightweight first-order crossover filters rather than a calibrated mastering equalizer. Gain balancing only attenuates loud files; it is not EBU R128 loudness normalization.
 
-Stem separation, harmonic/maqam analysis, learned preferences, offline mix export/recording, shared-clock native mixing, automatic loop/flanger transitions and streaming-service integrations remain future work. They are not represented by fake controls or bundled unlicensed models. The original Demucs repository is archived; evaluate maintained models and weights separately before adding separation. Libraries such as Essentia and Rubber Band require a licensing review for a proprietary distribution.
+Stem separation, harmonic/maqam analysis, offline mix export/recording, shared-clock native mixing, automatic loop/flanger transitions and streaming-service integrations remain future work. They are not represented by fake controls or bundled unlicensed models. The original Demucs repository is archived; evaluate maintained models and weights separately before adding separation. Libraries such as Essentia and Rubber Band require a licensing review for a proprietary distribution.
 
 ## Build
 

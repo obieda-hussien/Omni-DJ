@@ -17,12 +17,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class PlaybackIssue { NONE, FILE_UNAVAILABLE, NEXT_UNAVAILABLE }
+data class CompletedMix(val from: Song, val to: Song, val plan: MixPlan, val feedback: Boolean? = null)
 data class PlaybackState(
     val current: Song? = null, val next: Song? = null, val queue: List<Song> = emptyList(),
     val playing: Boolean = false, val positionMs: Long = 0, val durationMs: Long = 0,
     val mixing: Boolean = false, val progress: Float = 0f, val plan: MixPlan? = null,
     val speed: Float = 1f, val manualCrossfade: Float? = null, val issue: PlaybackIssue = PlaybackIssue.NONE,
     val loopBeats: Int = 0,
+    val lastMix: CompletedMix? = null,
+    val effects: DeckEffects = DeckEffects(),
 )
 
 @UnstableApi
@@ -50,6 +53,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
     private var loopStart = 0L
     private var loopBeats = 0
     private var lastTick = SystemClock.elapsedRealtime()
+    private var completedMix: CompletedMix? = null
     init {
         players.forEachIndexed { i, player ->
             player.addListener(object : Player.Listener {
@@ -127,6 +131,11 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
     fun previous() { seek(0) }
     fun next() { cancelTransition(); advance() }
     fun clearIssue() { _state.value = _state.value.copy(issue = PlaybackIssue.NONE) }
+    fun rateLastMix(liked: Boolean) {
+        val mix = completedMix ?: return
+        app.mixMemory.rate(mix.from, mix.to, mix.plan, liked)
+        completedMix = mix.copy(feedback = liked)
+    }
     fun queueNext(song: Song) {
         if (song.id == current?.id) return
         cancelTransition(); waiting.removeAll { it.id == song.id }; waiting.add(0, song); nextLocked = song.id
@@ -149,6 +158,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         manualEffects = DeckEffects(low.coerceIn(0f, 1.5f), mid.coerceIn(0f, 1.5f), high.coerceIn(0f, 1.5f),
             filter.coerceIn(0f, 1f), echo.coerceIn(0f, 1f))
         processors[deck].effects = manualEffects
+        _state.value = _state.value.copy(effects = manualEffects)
     }
     fun resetControls() { cancelTransition(); manualEffects = DeckEffects(); processors[deck].effects = manualEffects; active.playbackParameters = PlaybackParameters.DEFAULT; loopBeats = 0 }
     fun setCrossfade(value: Float) {
@@ -206,7 +216,11 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
         val settings = app.preferences.settings.value
         val analysis = app.analysis.analyses.value[current?.id]
         val playingAnalysis = analysis?.copy(bpm = analysis.bpm * active.playbackParameters.speed)
-        val plan = MixPlanner.plan(playingAnalysis, app.analysis.analyses.value[song.id], settings, song.durationMs)
+        val saved = if (settings.style == TransitionStyle.AUTO) app.mixMemory.find(current, song) else null
+        val effective = if (saved?.liked == true) settings.copy(style = saved.style, transitionSeconds = (saved.durationMs / 1000).toInt().coerceIn(2, 16)) else settings
+        var plan = MixPlanner.plan(playingAnalysis, app.analysis.analyses.value[song.id], effective, song.durationMs)
+        if (saved?.liked == false && saved.style == plan.style) plan = MixPlanner.plan(playingAnalysis,
+            app.analysis.analyses.value[song.id], settings.copy(style = TransitionStyle.SMOOTH), song.durationMs)
         // Conservative overlap cap, not vocal detection.
         return if (settings.preserveVocals && plan.durationMs > 6000) plan.copy(durationMs = 6000) else plan
     }
@@ -246,7 +260,7 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
             positionMs = active.currentPosition.coerceAtLeast(0), durationMs = current?.durationMs ?: 0,
             mixing = transitionStarted, plan = transition,
             progress = manualCrossfade ?: if (transitionStarted) (transitionElapsed.toFloat() / (transition?.durationMs ?: 1)).coerceIn(0f, 1f) else 0f,
-            speed = active.playbackParameters.speed, manualCrossfade = manualCrossfade, loopBeats = loopBeats)
+            speed = active.playbackParameters.speed, manualCrossfade = manualCrossfade, loopBeats = loopBeats, lastMix = completedMix, effects = manualEffects)
     }
     private fun applySingleDeckGain() {
         active.volume = MixPlanner.normalizedGain(app.analysis.analyses.value[current?.id], app.preferences.settings.value.normalize)
@@ -272,6 +286,9 @@ class MixEngine(private val app: DjApplication, private val onPlayerChanged: (Ex
     }
     private fun promote() {
         val song = prepared ?: return
+        val from = current
+        val completedPlan = transition
+        if (from != null && completedPlan != null) completedMix = CompletedMix(from, song, completedPlan)
         val outgoing = active
         // Switch identity before pause listeners run, otherwise outgoing pause also pauses the new deck.
         deck = 1 - deck

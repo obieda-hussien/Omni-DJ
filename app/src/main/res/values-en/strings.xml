@@ -101,4 +101,15 @@
     <string name="remove_from_queue">Remove from queue</string>
     <string name="file_unavailable">Cannot play this file. Choose another song or refresh the library.</string>
     <string name="next_unavailable">The next file could not be prepared and was removed from the queue.</string>
+    <string name="rate_mix">How was the last transition?</string>
+    <string name="mix_feedback_body">Your preference is saved for this pair of tracks.</string>
+    <string name="mix_feedback_saved">Preference saved for future transitions between these tracks.</string>
+    <string name="like_mix">Like transition</string>
+    <string name="dislike_mix">Dislike transition</string>
+    <string name="edit_grid">Correct beat grid</string>
+    <string name="grid_body">If the estimate is wrong, correct it manually. The correction is saved for this file.</string>
+    <string name="tap_tempo">Tap along to the beat four or more times</string>
+    <string name="beat_offset">Beat phase offset: %1$d ms</string>
+    <string name="beat_offset_body">Adjust beat phase within the pulse cycle. This does not identify a musical downbeat.</string>
+    <string name="save_grid">Save correction</string>
 </resources>

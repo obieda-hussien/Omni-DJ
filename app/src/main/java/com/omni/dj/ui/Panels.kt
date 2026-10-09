@@ -22,6 +22,7 @@ import androidx.media3.common.util.UnstableApi
 import com.omni.dj.R
 import com.omni.dj.core.*
 import com.omni.dj.playback.PlaybackState
+import com.omni.dj.data.Song
 import kotlin.math.roundToInt
 
 @UnstableApi
@@ -85,13 +86,9 @@ private fun SettingSwitch(title: Int, body: Int, value: Boolean, change: (Boolea
 
 @UnstableApi
 @Composable
-fun ProPanel(state: PlaybackState, analysis: TrackAnalysis?, model: DjViewModel) {
-    var low by remember(state.current?.id) { mutableFloatStateOf(1f) }
-    var mid by remember(state.current?.id) { mutableFloatStateOf(1f) }
-    var high by remember(state.current?.id) { mutableFloatStateOf(1f) }
-    var filter by remember(state.current?.id) { mutableFloatStateOf(1f) }
-    var echo by remember(state.current?.id) { mutableFloatStateOf(0f) }
-    val effects = { model.engine?.setEffects(low, mid, high, filter, echo); Unit }
+fun ProPanel(state: PlaybackState, analysis: TrackAnalysis?, model: DjViewModel, editGrid: () -> Unit) {
+    val effects = state.effects
+    fun update(e: com.omni.dj.playback.DeckEffects) { model.engine?.setEffects(e.low, e.mid, e.high, e.filter, e.echo) }
     LazyColumn(contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Text(stringResource(R.string.pro_controls), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -116,11 +113,11 @@ fun ProPanel(state: PlaybackState, analysis: TrackAnalysis?, model: DjViewModel)
         }
         item {
             Text(stringResource(R.string.eq), fontWeight = FontWeight.Bold)
-            ControlSlider(R.string.eq_low, low, 0f..1.5f) { low = it; effects() }
-            ControlSlider(R.string.eq_mid, mid, 0f..1.5f) { mid = it; effects() }
-            ControlSlider(R.string.eq_high, high, 0f..1.5f) { high = it; effects() }
-            ControlSlider(R.string.filter, filter, 0f..1f) { filter = it; effects() }
-            ControlSlider(R.string.echo, echo, 0f..1f) { echo = it; effects() }
+            ControlSlider(R.string.eq_low, effects.low, 0f..1.5f) { update(effects.copy(low = it)) }
+            ControlSlider(R.string.eq_mid, effects.mid, 0f..1.5f) { update(effects.copy(mid = it)) }
+            ControlSlider(R.string.eq_high, effects.high, 0f..1.5f) { update(effects.copy(high = it)) }
+            ControlSlider(R.string.filter, effects.filter, 0f..1f) { update(effects.copy(filter = it)) }
+            ControlSlider(R.string.echo, effects.echo, 0f..1f) { update(effects.copy(echo = it)) }
         }
         item {
             Text(stringResource(R.string.loop), fontWeight = FontWeight.Bold)
@@ -131,12 +128,46 @@ fun ProPanel(state: PlaybackState, analysis: TrackAnalysis?, model: DjViewModel)
                 }
             }
             Text(stringResource(R.string.loop_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(editGrid, enabled = state.current != null) { Text(stringResource(R.string.edit_grid)) }
         }
         item {
-            OutlinedButton({ low = 1f; mid = 1f; high = 1f; filter = 1f; echo = 0f; model.engine?.resetControls() }, Modifier.fillMaxWidth()) {
+            OutlinedButton({ model.engine?.resetControls() }, Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.RestartAlt, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.reset_controls))
             }
         }
+    }
+}
+
+@UnstableApi
+@Composable
+fun BeatGridPanel(song: Song, analysis: TrackAnalysis?, model: DjViewModel, done: () -> Unit) {
+    var bpm by remember(song.id) { mutableFloatStateOf((analysis?.bpm ?: 120f).takeIf { it in 65f..180f } ?: 120f) }
+    var offset by remember(song.id) { mutableFloatStateOf((analysis?.beatOffsetMs ?: 0).toFloat()) }
+    val tap = remember(song.id) { TapTempo() }
+    LazyColumn(contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            Text(stringResource(R.string.edit_grid), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(song.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.grid_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            Text(stringResource(R.string.bpm_value, bpm.roundToInt()), fontWeight = FontWeight.Bold)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Slider(bpm, { bpm = it; offset = offset.coerceAtMost(60000 / bpm - 1) }, valueRange = 65f..180f, steps = 114)
+            }
+            OutlinedButton({ tap.tap(android.os.SystemClock.elapsedRealtime())?.let { bpm = it; offset = offset.coerceAtMost(60000 / bpm - 1) } }, Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.TouchApp, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.tap_tempo))
+            }
+        }
+        item {
+            val period = 60000 / bpm
+            Text(stringResource(R.string.beat_offset, offset.roundToInt()), fontWeight = FontWeight.Medium)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Slider(offset.coerceIn(0f, period - 1), { offset = it }, valueRange = 0f..(period - 1))
+            }
+            Text(stringResource(R.string.beat_offset_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item { Button({ model.correctGrid(song, bpm, offset.toLong()); done() }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.save_grid)) } }
     }
 }
 

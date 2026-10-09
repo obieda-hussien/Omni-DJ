@@ -63,4 +63,5 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSettings(transform: (MixSettings) -> MixSettings) = app.preferences.update(transform)
     fun playNext(song: Song) = engine?.queueNext(song)
     fun clearError() = engine?.clearIssue()
+    fun correctGrid(song: Song, bpm: Float, offset: Long) = app.analysis.correctGrid(song, bpm, offset)
 }

@@ -101,4 +101,15 @@
     <string name="remove_from_queue">إزالة من قائمة التشغيل</string>
     <string name="file_unavailable">تعذر تشغيل الملف. اختار أغنية تانية أو حدث المكتبة.</string>
     <string name="next_unavailable">تعذر تجهيز التالية؛ اتشالت من قائمة التشغيل.</string>
+    <string name="rate_mix">النقلة الأخيرة عجبتك؟</string>
+    <string name="mix_feedback_body">اختيارك بيتحفظ للزوج ده من الأغاني.</string>
+    <string name="mix_feedback_saved">اتحفظ تفضيلك للنقلات الجاية بين الأغنيتين.</string>
+    <string name="like_mix">النقلة عجبتني</string>
+    <string name="dislike_mix">النقلة مش مناسبة</string>
+    <string name="edit_grid">تصحيح الإيقاع</string>
+    <string name="grid_body">لو التقدير التلقائي مش مضبوط، عدله يدويًا. التصحيح يتحفظ للملف الحالي.</string>
+    <string name="tap_tempo">اضغط مع الإيقاع أربع مرات أو أكتر</string>
+    <string name="beat_offset">إزاحة أول ضربة: %1$d مللي ثانية</string>
+    <string name="beat_offset_body">تعديل موضع الضربات داخل الدورة الإيقاعية. لا يحدد بداية المازورة.</string>
+    <string name="save_grid">حفظ التصحيح</string>
 </resources>

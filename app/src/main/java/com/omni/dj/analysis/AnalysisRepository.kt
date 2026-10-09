@@ -12,6 +12,7 @@ import com.omni.dj.data.Song
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -46,9 +47,9 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
                     if (song.id !in _analyses.value) {
                         // Do not compete with two live decoders on entry-level phones.
                         while (playbackActive) { delay(750); ensureActive() }
-                        val analysis = decode(song)
+                        val analysis = applyGrid(song, decode(song))
                         write(song, analysis)
-                        _analyses.value = _analyses.value + (song.id to analysis)
+                        _analyses.update { it + (song.id to analysis) }
                     }
                 } catch (e: CancellationException) { throw e }
                 catch (_: Exception) { failed++ }
@@ -61,7 +62,30 @@ class AnalysisRepository(private val context: Context, private val scope: Corout
         }
     }
     fun cancel() { job?.cancel(); keys = emptySet(); _progress.value = _progress.value.copy(running = false) }
-    private fun read(song: Song): TrackAnalysis? = runCatching {
+    fun correctGrid(song: Song, bpm: Float, offsetMs: Long) {
+        if (bpm !in 65f..180f) return
+        val period = (60000 / bpm).toLong().coerceAtLeast(1)
+        scope.launch(Dispatchers.IO) {
+            val offset = offsetMs.coerceIn(0, period - 1)
+            val json = JSONObject().put("bpm", bpm).put("offset", offset)
+            val temp = File(directory, "${song.cacheKey}.grid.tmp")
+            temp.writeText(json.toString())
+            if (temp.renameTo(File(directory, "${song.cacheKey}.grid"))) {
+                _analyses.update { values -> values + (song.id to (values[song.id] ?: TrackAnalysis()).copy(bpm = bpm, confidence = 1f, beatOffsetMs = offset)) }
+            }
+        }
+    }
+    private fun applyGrid(song: Song, analysis: TrackAnalysis): TrackAnalysis = runCatching {
+        val json = JSONObject(File(directory, "${song.cacheKey}.grid").readText())
+        val bpm = json.getDouble("bpm").toFloat()
+        if (bpm !in 65f..180f) analysis else analysis.copy(bpm = bpm, confidence = 1f, beatOffsetMs = json.getLong("offset"))
+    }.getOrDefault(analysis)
+    private fun read(song: Song): TrackAnalysis? {
+        val base = readBase(song)
+        if (base == null && !File(directory, "${song.cacheKey}.grid").exists()) return null
+        return applyGrid(song, base ?: TrackAnalysis())
+    }
+    private fun readBase(song: Song): TrackAnalysis? = runCatching {
         val json = JSONObject(File(directory, "${song.cacheKey}.json").readText())
         if (json.getInt("version") != 1) return null
         val wave = json.getJSONArray("wave")

@@ -29,12 +29,15 @@ class DjPlaybackService : MediaSessionService() {
         override fun getAvailableCommands(): Player.Commands = super.getAvailableCommands().buildUpon()
             .add(Player.COMMAND_SEEK_TO_NEXT).add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
             .add(Player.COMMAND_SEEK_TO_PREVIOUS).add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM).build()
+        override fun isCommandAvailable(command: Int): Boolean = availableCommands.contains(command)
         override fun seekToNext() { engine.next() }
         override fun seekToNextMediaItem() { engine.next() }
         override fun seekToPrevious() { engine.previous() }
         override fun seekToPreviousMediaItem() { engine.previous() }
         override fun seekTo(positionMs: Long) { engine.seek(positionMs) }
         override fun seekTo(mediaItemIndex: Int, positionMs: Long) { engine.seek(positionMs) }
+        override fun seekBack() { engine.seek(player.currentPosition - 10000) }
+        override fun seekForward() { engine.seek(player.currentPosition + 10000) }
         override fun play() { engine.play() }
         override fun pause() { engine.pause() }
     }
